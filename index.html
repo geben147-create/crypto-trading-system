@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUANT.SYS // 코인 트레이딩 시스템 설계 v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700;800&family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-0: #0a0a0a;
+    --bg-1: #111111;
+    --bg-2: #1a1a1a;
+    --bg-3: #232323;
+    --line: #2a2a2a;
+    --line-bright: #3a3a3a;
+    --ink: #e8e6e1;
+    --ink-dim: #8a8680;
+    --ink-faint: #555248;
+    --amber: #ffb22c;
+    --amber-glow: #ffb22c33;
+    --cyan: #5dd9c1;
+    --red: #ff5252;
+    --green: #4ade80;
+    --magenta: #ff4d8d;
+    --paper: #f4ede1;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg-0);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', 'Noto Sans KR', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(255, 178, 44, 0.04), transparent 50%),
+      radial-gradient(ellipse at 80% 100%, rgba(93, 217, 193, 0.03), transparent 50%);
+    background-attachment: fixed;
+  }
+
+  /* Grid overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 80px 80px;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Noise overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: 100;
+    mix-blend-mode: overlay;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 32px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ─────── HEADER ─────── */
+  .topbar {
+    border-bottom: 1px solid var(--line);
+    background: rgba(10,10,10,0.85);
+    backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .topbar-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 14px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .topbar-left { display: flex; gap: 24px; align-items: center; }
+  .topbar-right { display: flex; gap: 24px; color: var(--ink-dim); }
+  .topbar-logo {
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    color: var(--amber);
+  }
+  .blink { animation: blink 1.2s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .status-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* ─────── HERO ─────── */
+  .hero {
+    padding: 120px 0 80px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .hero-meta {
+    font-size: 11px;
+    color: var(--ink-dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .hero-meta span::before { content: '▸ '; color: var(--amber); }
+  .hero-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(48px, 8vw, 112px);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+  }
+  .hero-title em {
+    font-style: italic;
+    color: var(--amber);
+    font-weight: 600;
+  }
+  .hero-title .accent {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.25em;
+    color: var(--ink-dim);
+    letter-spacing: 0.3em;
+    margin-top: 16px;
+    text-transform: uppercase;
+  }
+  .hero-sub {
+    max-width: 640px;
+    color: var(--ink-dim);
+    font-size: 15px;
+    line-height: 1.7;
+    margin-top: 32px;
+    border-left: 2px solid var(--amber);
+    padding-left: 20px;
+  }
+
+  .ascii-deco {
+    position: absolute;
+    top: 100px;
+    right: 32px;
+    font-size: 10px;
+    line-height: 1.2;
+    color: var(--ink-faint);
+    white-space: pre;
+    text-align: right;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /* ─────── SECTION ─────── */
+  section.block {
+    padding: 80px 0;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+
+  .sec-header {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 32px;
+    margin-bottom: 48px;
+    align-items: start;
+  }
+  .sec-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 64px;
+    font-weight: 600;
+    font-style: italic;
+    color: var(--amber);
+    line-height: 0.9;
+  }
+  .sec-num small {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-style: normal;
+    color: var(--ink-dim);
+    letter-spacing: 0.2em;
+    margin-top: 8px;
+    font-weight: 400;
+  }
+  .sec-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 600;
+    line-height: 1.1;
+    letter-spacing: -0.01em;
+  }
+  .sec-title .ko { display: block; font-family: 'Noto Sans KR', sans-serif; font-weight: 700; font-size: 0.6em; color: var(--ink-dim); margin-top: 8px; letter-spacing: -0.01em; }
+  .sec-tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    padding: 4px 10px;
+    border: 1px solid var(--line-bright);
+    background: var(--bg-1);
+  }
+
+  /* ─────── DECISIONS TABLE ─────── */
+  .decisions {
+    border: 1px solid var(--line-bright);
+    background: var(--bg-1);
+  }
+  .decisions-row {
+    display: grid;
+    grid-template-columns: 1.5fr 0.5fr 2fr;
+    border-bottom: 1px solid var(--line);
+    padding: 18px 24px;
+    align-items: center;
+    transition: background 0.2s;
+  }
+  .decisions-row:last-child { border-bottom: none; }
+  .decisions-row:hover { background: var(--bg-2); }
+  .decisions-row.head {
+    background: var(--bg-2);
+    color: var(--ink-dim);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 12px 24px;
+  }
+  .d-item { font-weight: 500; font-family: 'Noto Sans KR', sans-serif; }
+  .d-status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.1em;
+  }
+  .d-status.keep { color: var(--green); }
+  .d-status.drop { color: var(--red); }
+  .d-status.partial { color: var(--amber); }
+  .d-status.dummy { color: var(--cyan); }
+  .d-detail { color: var(--ink-dim); font-size: 13px; font-family: 'Noto Sans KR', sans-serif; }
+
+  /* ─────── DATA TABLE ─────── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--line-bright);
+    font-size: 13px;
+  }
+  .data-table th, .data-table td {
+    padding: 14px 18px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+  }
+  .data-table th:last-child, .data-table td:last-child { border-right: none; }
+  .data-table th {
+    background: var(--bg-2);
+    color: var(--ink-dim);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .data-table tbody tr:hover { background: var(--bg-1); }
+  .data-table .src-name { font-weight: 700; color: var(--ink); }
+  .rank {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px solid;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    font-weight: 700;
+  }
+  .rank-1 { color: var(--amber); border-color: var(--amber); }
+  .rank-2 { color: var(--cyan); border-color: var(--cyan); }
+  .rank-3 { color: var(--ink-dim); border-color: var(--line-bright); }
+
+  /* ─────── EXAMPLE BOX ─────── */
+  .examples {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+  }
+  .example {
+    border: 1px solid var(--line-bright);
+    background: var(--bg-1);
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .example::before {
+    content: attr(data-label);
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    font-size: 10px;
+    color: var(--ink-faint);
+    letter-spacing: 0.2em;
+  }
+  .example-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 32px;
+    font-style: italic;
+    color: var(--amber);
+    line-height: 1;
+    margin-bottom: 12px;
+  }
+  .example-title {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 12px;
+    color: var(--ink);
+  }
+  .example-body {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 13px;
+    color: var(--ink-dim);
+    line-height: 1.7;
+  }
+  .example-body code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    background: var(--bg-2);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .example-tag {
+    display: inline-block;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--amber);
+    border: 1px solid var(--amber);
+    padding: 2px 8px;
+    margin-top: 12px;
+    text-transform: uppercase;
+  }
+
+  /* ─────── CODE BLOCK ─────── */
+  .code-block {
+    background: #050505;
+    border: 1px solid var(--line-bright);
+    border-left: 3px solid var(--amber);
+    padding: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow-x: auto;
+    color: var(--ink);
+    position: relative;
+  }
+  .code-block::before {
+    content: '> ' attr(data-lang);
+    position: absolute;
+    top: 8px;
+    right: 16px;
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .code-block .k { color: var(--magenta); }
+  .code-block .s { color: var(--green); }
+  .code-block .n { color: var(--amber); }
+  .code-block .c { color: var(--ink-faint); font-style: italic; }
+  .code-block .v { color: var(--cyan); }
+
+  /* ─────── ASCII DIAGRAM ─────── */
+  .ascii-box {
+    background: #050505;
+    border: 1px solid var(--line-bright);
+    padding: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .ascii-box .hl { color: var(--amber); font-weight: 700; }
+  .ascii-box .dim { color: var(--ink-dim); }
+  .ascii-box .cy { color: var(--cyan); }
+
+  /* ─────── M10 GRID DEMO ─────── */
+  .m10-demo {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 120px);
+    gap: 4px;
+    background: var(--line);
+    border: 1px solid var(--line-bright);
+    padding: 4px;
+    margin-top: 24px;
+  }
+  .m10-cell {
+    background: var(--bg-1);
+    padding: 10px 12px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .m10-cell:hover { background: var(--bg-2); }
+  .m10-cell.active { background: var(--bg-3); border: 1px solid var(--amber); }
+  .m10-cell-head {
+    font-size: 10px;
+    color: var(--ink-dim);
+    letter-spacing: 0.1em;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .m10-cell-sym { color: var(--amber); font-weight: 700; }
+  .m10-cell-svg { width: 100%; height: 70px; }
+
+  /* ─────── PIPELINE FLOW ─────── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 8px;
+    margin-top: 24px;
+    counter-reset: pipe;
+  }
+  .pipe-step {
+    border: 1px solid var(--line-bright);
+    background: var(--bg-1);
+    padding: 16px 12px;
+    position: relative;
+    text-align: left;
+    counter-increment: pipe;
+  }
+  .pipe-step::before {
+    content: counter(pipe, decimal-leading-zero);
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 28px;
+    color: var(--amber);
+    line-height: 1;
+    display: block;
+    margin-bottom: 8px;
+  }
+  .pipe-step-name {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .pipe-step-desc {
+    font-size: 10px;
+    color: var(--ink-dim);
+    font-family: 'Noto Sans KR', sans-serif;
+    line-height: 1.5;
+  }
+  .pipe-step.priority { border-color: var(--amber); background: linear-gradient(180deg, rgba(255,178,44,0.05), transparent); }
+
+  /* ─────── INPUT CHECKLIST ─────── */
+  .checklist {
+    display: grid;
+    grid-template-columns: 60px 1fr 2fr;
+    border: 1px solid var(--line-bright);
+    background: var(--bg-1);
+  }
+  .check-row {
+    display: contents;
+  }
+  .check-row > div {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+  }
+  .check-row:last-child > div { border-bottom: none; }
+  .check-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-style: italic;
+    color: var(--amber);
+    justify-content: center;
+  }
+  .check-label {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .check-format {
+    color: var(--ink-dim);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.6;
+  }
+
+  /* ─────── COMPARE BLOCK ─────── */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line-bright);
+    border: 1px solid var(--line-bright);
+    margin-top: 24px;
+  }
+  .compare-col {
+    background: var(--bg-1);
+    padding: 28px;
+  }
+  .compare-col h4 {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .compare-col h4 .role { display: block; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-dim); letter-spacing: 0.2em; text-transform: uppercase; font-weight: 400; margin-top: 4px; }
+  .compare-col.left h4 { color: var(--amber); }
+  .compare-col.right h4 { color: var(--cyan); }
+  .compare-attr {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    padding: 10px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 12px;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .compare-attr:last-child { border-bottom: none; }
+  .compare-attr-k { color: var(--ink-dim); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .compare-attr-v { color: var(--ink); }
+
+  /* ─────── ACTIONS ─────── */
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1px;
+    background: var(--line-bright);
+    border: 1px solid var(--line-bright);
+  }
+  .action {
+    background: var(--bg-1);
+    padding: 28px;
+    cursor: pointer;
+    transition: background 0.2s;
+    position: relative;
+  }
+  .action:hover { background: var(--bg-2); }
+  .action-letter {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 56px;
+    font-style: italic;
+    font-weight: 700;
+    color: var(--amber);
+    line-height: 0.9;
+    margin-bottom: 12px;
+  }
+  .action-title {
+    font-family: 'Noto Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  .action-desc {
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .action::after {
+    content: '→';
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    color: var(--ink-dim);
+    transition: transform 0.2s;
+  }
+  .action:hover::after { transform: translateX(4px); color: var(--amber); }
+
+  /* ─────── FOOTER ─────── */
+  footer {
+    padding: 60px 0 40px;
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  footer .sig {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink-dim);
+    margin-top: 12px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+
+  /* annotations */
+  .anno {
+    color: var(--amber);
+    font-style: italic;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+  }
+
+  /* highlight tape */
+  .tape {
+    display: inline-block;
+    background: var(--amber);
+    color: var(--bg-0);
+    padding: 1px 8px;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transform: rotate(-1deg);
+  }
+
+  @media (max-width: 900px) {
+    .pipeline { grid-template-columns: repeat(3, 1fr); }
+    .compare-grid { grid-template-columns: 1fr; }
+    .m10-demo { grid-template-columns: repeat(2, 1fr); }
+    .sec-header { grid-template-columns: 1fr; gap: 12px; }
+    .ascii-deco { display: none; }
+    .container { padding: 0 20px; }
+    .topbar-right .hide-mobile { display: none; }
+  }
+
+  /* Reveal animation */
+  section.block {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s, transform 0.8s;
+  }
+  section.block.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <span class="topbar-logo">QUANT.SYS</span>
+      <span><span class="status-dot"></span>SSOT v1.0 sync<span class="blink">_</span></span>
+    </div>
+    <div class="topbar-right">
+      <span class="hide-mobile">BTC/USDT · 67,420.50 <span style="color:var(--green)">+1.24%</span></span>
+      <span class="hide-mobile">RUN_ID · a3f9c2…</span>
+      <span>2026.04.26 / KST</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="ascii-deco">┌─────────────────┐
+│  M1 ─→ DSL      │
+│  M2 ─→ NL/Form  │
+│  M3 ─→ Validate │
+│  M4 ─→ Signal ▼ │
+│  M5 ─→ Backtest │
+│  M6 ─→ Optimize │
+│  M7 ─→ Position │
+│  M8 ─→ DataLake │
+│  M9 ─→ Adapter  │
+│  M10─→ Chart UI │
+│  M11─→ Security │
+│  M12─→ Risk     │
+└─────────────────┘
+         │
+         ▼
+   [ EXECUTION ]</div>
+
+    <div class="hero-meta">
+      <span>NAMESPACE / crypto-quant</span>
+      <span>VERSION / v1.0.0</span>
+      <span>SCOPE / binance spot+futures</span>
+      <span>STATUS / design freeze</span>
+    </div>
+    <h1 class="hero-title">
+      코인 <em>퀀트</em> 시스템<br>
+      설계 명세<span class="accent">// trading system blueprint — visualization</span>
+    </h1>
+    <p class="hero-sub">
+      자연어→DSL→백테스트→실거래로 이어지는 12개 모듈의 전체 설계 흐름.
+      낙주매매 v1 더미 전략을 기준으로 데이터 소스, 신호 엔진, 분할매수, 리스크 가드레일, 차트 N분할까지 — <span class="tape">상세 예시 3개씩</span> 펼친 시각 명세서.
+    </p>
+  </header>
+
+
+  <!-- ───────── §1. DECISIONS ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">01<small>FROZEN</small></div>
+      <div>
+        <div class="sec-tag">decisions · 결정사항</div>
+        <h2 class="sec-title">결정 사항 요약 <span class="ko">— 확정 처리된 7개 항목</span></h2>
+      </div>
+    </div>
+
+    <div class="decisions">
+      <div class="decisions-row head">
+        <div>항목 / Item</div>
+        <div style="text-align:center">상태 / Status</div>
+        <div>비고 / Note</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">자산군</div>
+        <div class="d-status keep">▣ KEEP</div>
+        <div class="d-detail">코인 (Binance Spot/Futures) — README/SSOT 그대로 유지</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">거래대금 상위 N</div>
+        <div class="d-status keep">▣ KEEP</div>
+        <div class="d-detail">Binance 24h ticker / CoinGecko coins/markets 로 계산</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">"특징주/단독/계약체결" 키워드</div>
+        <div class="d-status drop">✕ DROP</div>
+        <div class="d-detail">코인 시장엔 해당 개념 없음 → 제외</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">호가창 자금 시그널</div>
+        <div class="d-status drop">✕ DROP</div>
+        <div class="d-detail">orderbook 기반 자금 분석 — 제외</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">기간횡보대칭 패턴</div>
+        <div class="d-status drop">✕ DROP</div>
+        <div class="d-detail">제외</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">봉우리 패턴</div>
+        <div class="d-status partial">◐ PARTIAL</div>
+        <div class="d-detail">육안 확인용 — 차트에 마커만 표시, 자동 신호화 ✕</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">사용자 전략 (낙주매매 v1)</div>
+        <div class="d-status dummy">◇ DUMMY</div>
+        <div class="d-detail">백테스트 시나리오로 등록 → dummy_strategy_v1.yaml</div>
+      </div>
+      <div class="decisions-row">
+        <div class="d-item">모든 임계값 (EMA200 ±0.5%, 볼폭 1.1% …)</div>
+        <div class="d-status keep">▣ PARAM</div>
+        <div class="d-detail">DSL 파라미터화 → 사용자가 ±N% 자유롭게 변경</div>
+      </div>
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">"특징주" 키워드를 왜 빼는가</div>
+        <div class="example-body">
+          국내 증시의 <code>특징주</code>·<code>단독</code>·<code>계약체결</code>은 한국 뉴스 와이어(연합·인포맥스)에서 나오는 제목 키워드 시그널입니다. 코인은 24/7 글로벌 시장이라 동일 개념이 없고, 대신 <code>volume_spike</code>·<code>funding_rate_extreme</code>·<code>open_interest_jump</code> 같은 온체인·파생 지표가 그 자리를 대체합니다.
+        </div>
+        <span class="example-tag">대체지표 ▸ funding_rate</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">봉우리 패턴 — 왜 "육안만"</div>
+        <div class="example-body">
+          더블탑·헤드앤숄더 같은 패턴은 룩백 윈도우와 피크 정의에 따라 신호가 출렁입니다. 자동화하면 false positive가 30%대로 치솟아 모델을 오염시키죠. 그래서 M10 차트에 <code>peak_marker</code> SVG 오버레이만 그려놓고, 매수 트리거에선 제외합니다.
+        </div>
+        <span class="example-tag">시각화 ▸ marker only</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">파라미터화 — 1줄 수정의 위력</div>
+        <div class="example-body">
+          <code>ema_touch_band: 0.5</code> 한 줄을 <code>0.3</code>으로 바꾸면 즉시 신호 빈도가 절반으로 줄고 승률이 변동합니다. M6 Optimizer가 이걸 <code>[0.1, 1.0]</code> 구간에서 Optuna로 sweep해 Sharpe 최대점을 찾습니다. 사람이 손댈 곳은 yaml 한 줄.
+        </div>
+        <span class="example-tag">M6 ▸ optuna sweep</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §2. DATA SOURCES ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">02<small>INGEST</small></div>
+      <div>
+        <div class="sec-tag">market data · 시세 데이터 소스</div>
+        <h2 class="sec-title">M8 Market Data Lake <span class="ko">— 무료 · 장기 · 고품질 후보</span></h2>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>소스</th>
+          <th>무료 한도</th>
+          <th>보유 기간</th>
+          <th>거래대금</th>
+          <th>추천</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="src-name">Binance REST /klines</td>
+          <td>IP당 1200 req/min</td>
+          <td>2017~ (BTC/USDT 8년+)</td>
+          <td style="color:var(--green)">✓ quote volume 포함</td>
+          <td><span class="rank rank-1">★ 1순위</span></td>
+        </tr>
+        <tr>
+          <td class="src-name">Binance Futures /fapi/klines</td>
+          <td>무료</td>
+          <td>2019~</td>
+          <td style="color:var(--green)">✓</td>
+          <td><span class="rank rank-1">★ 선물용</span></td>
+        </tr>
+        <tr>
+          <td class="src-name">CoinGecko /coins/markets</td>
+          <td>30 req/min</td>
+          <td>2013~ (BTC)</td>
+          <td style="color:var(--green)">✓ 시총·24h vol·rank</td>
+          <td><span class="rank rank-2">2순위</span></td>
+        </tr>
+        <tr>
+          <td class="src-name">CryptoCompare /histoday</td>
+          <td>100k req/month</td>
+          <td>2010~</td>
+          <td style="color:var(--green)">✓</td>
+          <td><span class="rank rank-3">백업</span></td>
+        </tr>
+        <tr>
+          <td class="src-name">Yahoo Finance (yfinance)</td>
+          <td>무료, 비공식</td>
+          <td>일봉 한정 8년+</td>
+          <td style="color:var(--amber)">△ 부정확</td>
+          <td><span class="rank rank-3">비추</span></td>
+        </tr>
+        <tr>
+          <td class="src-name">Kaiko / Tardis</td>
+          <td style="color:var(--red)">유료</td>
+          <td>틱·orderbook 풀</td>
+          <td style="color:var(--green)">✓</td>
+          <td><span class="rank rank-3">P2</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:24px; padding:20px; border-left:3px solid var(--cyan); background:var(--bg-1); font-size:13px; line-height:1.7; color:var(--ink-dim);">
+      <strong style="color:var(--cyan);">⚡ 권장 조합 :</strong> 백테스트 OHLCV는 <code style="color:var(--amber)">Binance kline</code>(1m → 동적 리샘플), 상위 N 선정은 <code style="color:var(--amber)">CoinGecko</code>, 검증 보조는 <code style="color:var(--amber)">CryptoCompare</code>.<br>
+      ⚠️ Binance kline은 동일 거래소에서 나온 거래대금이라 백테스트와 실거래가 일치합니다. CoinGecko는 "전 세계 합산"이라 신호 트리거(상위 N)에는 좋지만 백테스트엔 부적합.
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">Binance kline 1m × 5년 = 약 2.6M개 row</div>
+        <div class="example-body">
+          1분봉 1년 = 525,600개. 5년치 BTCUSDT만 해도 ~2.6M row. ClickHouse <code>MergeTree</code> 엔진에 <code>ORDER BY (symbol, ts)</code>로 적재하면 디스크 ~80MB, 쿼리 50ms. 100개 종목으로 확장해도 8GB 미만이라 노트북 SSD에 충분히 들어갑니다.
+        </div>
+        <span class="example-tag">storage ▸ clickhouse</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">CoinGecko 상위 100 — 30 req/min 체감</div>
+        <div class="example-body">
+          <code>/coins/markets?per_page=100</code> 한 번에 100개. 5분마다 1콜이면 월 ~8,640콜 — 무료 한도(30 req/min) 안. 실시간성이 필요하면 30초 간격(월 86,400콜)도 가능. 다만 Pro 키 없이 IP 차단 위험 있어 <code>retry-after</code> 헤더 존중 필수.
+        </div>
+        <span class="example-tag">rate ▸ exponential backoff</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">동적 리샘플 — 1m → 5m/15m/1h/1d</div>
+        <div class="example-body">
+          1m만 저장하고 5m/15m/1h/1d는 쿼리 시점에 <code>tumble(ts, INTERVAL 5 MINUTE)</code>로 GROUP BY. 디스크 4배 절약 + 임의 TF 즉시 생성. 단점: 1d 백테스트 시 매번 집계 → <code>materialized view</code>로 캐싱하면 0.1초 → 0.001초.
+        </div>
+        <span class="example-tag">trick ▸ materialized view</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §3. M10 CHART ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">03<small>VIZ UI</small></div>
+      <div>
+        <div class="sec-tag">module 10 · chart visualization</div>
+        <h2 class="sec-title">M10 차트 — N분할 그리드 <span class="ko">— 드래그·일괄 변경·50+ 지표</span></h2>
+      </div>
+    </div>
+
+    <p style="color:var(--ink-dim); font-size:14px; max-width:780px; margin-bottom:20px; font-family:'Noto Sans KR',sans-serif;">
+      SSOT §M10 명세는 이미 박혀 있습니다. 1·2·4·6·8·9·12·N분할, 셀별 독립 심볼/TF/지표, Ctrl·Shift 멀티선택 일괄 적용, 차트 클릭→가격 알람 수평선까지.
+    </p>
+
+    <!-- M10 Demo Grid -->
+    <div class="m10-demo" id="m10grid">
+      <div class="m10-cell active">
+        <div class="m10-cell-head"><span class="m10-cell-sym">BTCUSDT</span><span>1d</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#ffb22c" stroke-width="1.2" points="0,50 20,45 40,30 60,35 80,20 100,25 120,15 140,22 160,10 180,18 200,8"/><line x1="0" y1="40" x2="200" y2="40" stroke="#5dd9c1" stroke-width="0.5" stroke-dasharray="2,2"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">ETHUSDT</span><span>1h</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#5dd9c1" stroke-width="1.2" points="0,30 20,35 40,40 60,32 80,38 100,28 120,33 140,25 160,30 180,22 200,28"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">SOLUSDT</span><span>15m</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#ff4d8d" stroke-width="1.2" points="0,40 20,38 40,42 60,35 80,40 100,30 120,38 140,32 160,28 180,35 200,30"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">BNBUSDT</span><span>4h</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#ffb22c" stroke-width="1.2" points="0,45 20,40 40,42 60,38 80,30 100,35 120,28 140,32 160,25 180,30 200,22"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">XRPUSDT</span><span>1d</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#4ade80" stroke-width="1.2" points="0,50 20,52 40,48 60,50 80,45 100,42 120,40 140,38 160,35 180,38 200,32"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">DOGEUSDT</span><span>1h</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#ff5252" stroke-width="1.2" points="0,30 20,28 40,35 60,32 80,40 100,38 120,42 140,40 160,45 180,42 200,48"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">ADAUSDT</span><span>15m</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><polyline fill="none" stroke="#5dd9c1" stroke-width="1.2" points="0,35 20,38 40,32 60,40 80,35 100,42 120,38 140,45 160,40 180,48 200,42"/></svg>
+      </div>
+      <div class="m10-cell">
+        <div class="m10-cell-head"><span class="m10-cell-sym">+ ADD</span><span>—</span></div>
+        <svg class="m10-cell-svg" viewBox="0 0 200 70"><text x="100" y="40" text-anchor="middle" fill="#555248" font-family="JetBrains Mono" font-size="20">+</text></svg>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:8px; font-size:10px; color:var(--ink-dim); letter-spacing:0.1em; text-transform:uppercase;">
+      <span style="color:var(--amber)">▸ 4×2 LAYOUT</span>
+      <span>· DRAG-RESIZE</span>
+      <span>· SYNC ON</span>
+      <span>· CROSSHAIR LOCKED</span>
+      <span>· 50+ INDICATORS</span>
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">Ctrl+클릭 4셀 → 모두 1h로 일괄 변경</div>
+        <div class="example-body">
+          BTC/ETH/SOL/BNB 4셀을 Ctrl+클릭으로 멀티선택한 뒤 상단 툴바 <code>[TF: 1h]</code> 한 번 누르면 4개 차트가 동시에 1시간봉으로 바뀝니다. 셀별 심볼·지표는 그대로 유지. 12셀 그리드에서 30분 걸릴 작업이 1초.
+        </div>
+        <span class="example-tag">UX ▸ multi-select apply</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">차트 클릭 → 70,000 USDT 가격 알람 등록</div>
+        <div class="example-body">
+          BTC 차트의 70,000 라인 위치를 클릭하면 수평선이 그려지고 <code>alarm</code> 테이블에 <code>{symbol:'BTCUSDT', price:70000, dir:'ABOVE'}</code> 레코드가 INSERT. M4 시그널 엔진이 매 bar 스캔 → 도달 시 PWA 푸시 + 사운드 + (옵션)자동 매수.
+        </div>
+        <span class="example-tag">M10 ▸ M4 ▸ alarm chain</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">사용자 정의 지표 — Web Worker 샌드박스</div>
+        <div class="example-body">
+          수식 빌더로 <code>(close - EMA(close,200)) / ATR(14)</code> 같은 식 작성 → 코드 에디터에서 JS로 변환 → <code>Worker</code> 샌드박스에서 실행. 메인 스레드 차단 없이 60fps 유지. 무한 루프나 <code>fetch()</code>는 차단(권한 박탈), CPU 200ms 초과 시 강제 종료.
+        </div>
+        <span class="example-tag">security ▸ sandboxed worker</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §4. STRATEGY DSL ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">04<small>DSL</small></div>
+      <div>
+        <div class="sec-tag">module 1 · strategy dsl</div>
+        <h2 class="sec-title">낙주매매 v1 — 파라미터화 <span class="ko">— dummy_strategy_v1.yaml</span></h2>
+      </div>
+    </div>
+
+    <div class="code-block" data-lang="yaml · m1 dsl"><span class="c"># ─ schema ──────────────────────────────────────</span>
+<span class="k">schema_version:</span> <span class="s">"1.0.0"</span>
+<span class="k">meta:</span>
+  <span class="k">name:</span> <span class="s">"낙주매매 v1 (코인)"</span>
+  <span class="k">notes:</span> <span class="s">"EMA200 닿음 + 장봉 위치 + [15]볼 좁/돌파"</span>
+
+<span class="k">universe:</span>
+  <span class="k">symbols:</span> [<span class="s">"BTCUSDT"</span>, <span class="s">"ETHUSDT"</span>, ...]
+  <span class="k">selection:</span>
+    <span class="k">mode:</span> <span class="s">"volume_rank"</span>
+    <span class="k">top_n:</span> <span class="n">100</span>            <span class="c"># 거래대금 상위 100</span>
+
+<span class="k">timeframes:</span> [<span class="s">"1m"</span>, <span class="s">"15m"</span>, <span class="s">"1h"</span>, <span class="s">"1d"</span>]
+
+<span class="c"># ── 사용자가 자유롭게 ±N% 조정할 파라미터 ──</span>
+<span class="k">params:</span>
+  <span class="k">ema_period:</span>            <span class="n">200</span>
+  <span class="k">ema_touch_band:</span>        <span class="n">0.5</span>      <span class="c"># ±0.5%</span>
+  <span class="k">long_candle_pos_min:</span>   <span class="n">30</span>       <span class="c"># 장봉 30% 지점</span>
+  <span class="k">long_candle_pos_max:</span>   <span class="n">70</span>       <span class="c"># 장봉 70% 지점</span>
+  <span class="k">bb_15m_period:</span>         <span class="n">20</span>
+  <span class="k">bb_15m_stddev:</span>         <span class="n">2</span>
+  <span class="k">bb_15m_squeeze_pct:</span>    <span class="n">1.1</span>      <span class="c"># [15]볼폭 좁힘 기준</span>
+  <span class="k">bb_24m_squeeze_pct:</span>    <span class="n">2.2</span>      <span class="c"># 24봉</span>
+  <span class="k">bb_60m_squeeze_pct:</span>    <span class="n">5.0</span>      <span class="c"># [60]볼폭 5%</span>
+  <span class="k">pullback_days:</span>         <span class="n">5</span>        <span class="c"># x일 후 매수</span>
+  <span class="k">yellow_bar_threshold_pct:</span> <span class="n">4</span>     <span class="c"># 노랑장봉 정의(몸통 ≥ 4%)</span>
+  <span class="k">target_profit_pct:</span>     <span class="n">4</span>        <span class="c"># 1차 목표</span>
+  <span class="k">stoploss_pct:</span>          <span class="n">1.5</span>      <span class="c"># [15]볼하 손절</span>
+
+<span class="k">rules:</span>
+  <span class="k">entry:</span>
+    <span class="k">op:</span> <span class="s">"AND"</span>
+    <span class="k">conds:</span>
+      - { <span class="v">tf</span>: <span class="s">"1d"</span>,  <span class="v">lhs</span>: <span class="s">"close"</span>, <span class="v">op</span>: <span class="s">"near"</span>, <span class="v">rhs</span>: <span class="s">"EMA(200)"</span>, <span class="v">band_pct</span>: $ema_touch_band }
+      - { <span class="v">tf</span>: <span class="s">"1d"</span>,  <span class="v">lhs</span>: <span class="s">"yellow_bar_pos_pct"</span>, <span class="v">op</span>: <span class="s">"between"</span>, <span class="v">lo</span>: $long_candle_pos_min, <span class="v">hi</span>: $long_candle_pos_max }
+      - { <span class="v">tf</span>: <span class="s">"15m"</span>, <span class="v">lhs</span>: <span class="s">"BB_width_pct(20,2)"</span>, <span class="v">op</span>: <span class="s">"&lt;="</span>, <span class="v">rhs</span>: $bb_15m_squeeze_pct }
+      - { <span class="v">tf</span>: <span class="s">"1d"</span>,  <span class="v">lhs</span>: <span class="s">"quote_volume_rank"</span>, <span class="v">op</span>: <span class="s">"&lt;="</span>, <span class="v">rhs</span>: <span class="n">100</span> }
+  <span class="k">exit:</span>
+    <span class="k">op:</span> <span class="s">"OR"</span>
+    <span class="k">conds:</span>
+      - { <span class="v">type</span>: <span class="s">"take_profit_pct"</span>, <span class="v">value</span>: $target_profit_pct }
+      - { <span class="v">tf</span>: <span class="s">"15m"</span>, <span class="v">lhs</span>: <span class="s">"close"</span>, <span class="v">op</span>: <span class="s">"&lt;"</span>, <span class="v">rhs</span>: <span class="s">"BB_lower(20,2)"</span> }
+      - { <span class="v">type</span>: <span class="s">"stoploss_pct"</span>, <span class="v">value</span>: $stoploss_pct }
+
+<span class="k">position:</span>
+  <span class="k">splits:</span>                       <span class="c"># 분할매수 — §7 참고</span>
+    - { <span class="v">weight</span>: <span class="n">0.40</span>, <span class="v">trigger</span>: <span class="s">"entry"</span> }
+    - { <span class="v">weight</span>: <span class="n">0.30</span>, <span class="v">trigger</span>: <span class="s">"drop_pct: 2"</span> }
+    - { <span class="v">weight</span>: <span class="n">0.30</span>, <span class="v">trigger</span>: <span class="s">"drop_pct: 4"</span> }</div>
+
+    <p style="margin-top:24px; color:var(--ink-dim); font-size:13px; line-height:1.7; font-family:'Noto Sans KR',sans-serif;">
+      <span class="anno">→ M6 Optimizer가 params만 가지고</span> <code style="color:var(--cyan); background:var(--bg-2); padding:1px 6px;">target_profit_pct ∈ [3, 8]</code>, <code style="color:var(--cyan); background:var(--bg-2); padding:1px 6px;">stoploss_pct ∈ [1, 3]</code> 같은 범위를 Optuna로 sweep합니다. 이게 "±N% 너 마음대로 변경"의 실현 방법.
+    </p>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">노랑장봉 — yellow_bar_pos_pct 계산법</div>
+        <div class="example-body">
+          몸통이 4% 이상인 양봉을 "노랑장봉"이라 정의. <code>pos_pct = (close - open) / (high - low) × 100</code>. 30~70% 구간이면 "몸통이 봉 중앙에 있음" → 매수자/매도자 균형 → 다음 캔들 변동성 폭발 확률 ↑. 0% 또는 100%면 한 방향 압도라 추세 전환 시그널이 아님.
+        </div>
+        <span class="example-tag">indicator ▸ yellow bar</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">BB 폭 1.1% 의미 — 변동성 압축</div>
+        <div class="example-body">
+          <code>BB_width = (upper - lower) / mid × 100</code>. 평상시 BTC 15m 볼린저 폭은 1.5~3%, 1.1% 이하로 떨어지면 직전 ~30봉 대비 변동성 하위 10%. 압축 후 평균 8~12봉 안에 한 방향으로 폭발 — Bollinger Squeeze 페이퍼(2007) 기반의 검증된 패턴.
+        </div>
+        <span class="example-tag">stat ▸ p10 volatility</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">EMA200 ±0.5% 밴드 — 닿음 vs 돌파</div>
+        <div class="example-body">
+          <code>abs(close - EMA(close,200)) / close × 100 ≤ 0.5</code>. 가격이 200일 이평선에서 ±0.5% 안쪽으로 들어왔을 때만 "닿음"으로 판정. 0.5%는 BTC 일봉 변동성의 ~1/3 — 너무 좁으면 노이즈, 너무 넓으면 의미 희석. ATR 기반으로 동적 변경도 가능 (<code>band_pct = ATR(14) × 0.3 / close × 100</code>).
+        </div>
+        <span class="example-tag">tuning ▸ atr-adaptive</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §5. BACKTEST ENGINE ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">05<small>ENGINE</small></div>
+      <div>
+        <div class="sec-tag">module 5 · backtest engine</div>
+        <h2 class="sec-title">M5 백테스트 엔진 <span class="ko">— event-loop 시뮬레이션 + run_id 재현성</span></h2>
+      </div>
+    </div>
+
+    <div class="ascii-box"><span class="dim">[</span> <span class="hl">Strategy DSL</span> <span class="dim">]</span>                     <span class="dim">[</span> <span class="hl">Historical OHLCV (M8)</span> <span class="dim">]</span>
+       └──────────┐         ┌────────────────┘
+                  ▼         ▼
+            ┌─────────────────────┐
+            │  <span class="hl">Backtest Engine</span>    │
+            │  (event-loop sim)   │
+            └─────────────────────┘
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+  <span class="cy">Trades list</span>     <span class="cy">Performance</span>      <span class="cy">run_id</span>
+                  (Sharpe/MDD/    (재현성 해시)
+                   승률 등)
+
+<span class="hl">▸ 핵심 규칙 (NO LOOKAHEAD)</span>
+  · 신호  = bar close 이후 <span class="cy">확정</span>
+  · 체결  = 다음 bar open (기본) / intrabar 옵션
+  · run_id = hash(strategy + data + code_git_sha + seed + fee/slippage_model)
+            <span class="dim">└─ 같은 입력이면 항상 같은 결과 보장</span></div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">No-Lookahead 위반 — 흔한 함정</div>
+        <div class="example-body">
+          초보 백테스터의 70%가 저지르는 실수: <code>signal[t] = close[t] > MA[t]</code> 로 신호 만들고 <code>fill[t] = close[t]</code> 로 체결. close는 t 봉이 끝난 뒤에야 확정되는데 같은 봉 close에 체결한 셈이라 미래 정보를 쓴 것. 정답은 <code>fill[t+1] = open[t+1]</code>. Sharpe가 1.5 → 0.3 으로 추락합니다.
+        </div>
+        <span class="example-tag">bug ▸ time travel</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">run_id — 8자리 해시로 재현성 보장</div>
+        <div class="example-body">
+          <code>run_id = sha256(yaml + ohlcv_hash + git_sha + seed + fee_model)[:8]</code>. 결과는 <code>a3f9c2b1</code>. 6개월 뒤 같은 yaml로 돌리면 같은 run_id. 다르면 데이터·코드 중 하나가 바뀐 것 → diff 추적. 논문 reproducibility 기준 충족.
+        </div>
+        <span class="example-tag">trace ▸ deterministic</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">Binance 수수료 — 현실적 차감</div>
+        <div class="example-body">
+          기본 maker 0.1% / taker 0.1%. BNB 결제 시 25% 할인 → 0.075%. VIP 1티어부터 0.09/0.10%. 슬리피지는 BPS 모델: BTC 5bps, 알트 20bps, 저유동성 50bps. 1년 100회 매매면 수수료만 20% 차감 — 백테스트에서 "잘 되더라" 했다가 실거래 -10% 나는 주범.
+        </div>
+        <span class="example-tag">fees ▸ realistic model</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §6. M8 vs M10 ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">06<small>VS</small></div>
+      <div>
+        <div class="sec-tag">disambiguation · 헷갈리지 마세요</div>
+        <h2 class="sec-title">M8 ≠ M10 <span class="ko">— Data Lake와 Chart는 다릅니다</span></h2>
+      </div>
+    </div>
+
+    <div class="compare-grid">
+      <div class="compare-col left">
+        <h4>M8<span class="role">market data lake</span></h4>
+        <div class="compare-attr"><div class="compare-attr-k">역할</div><div class="compare-attr-v">데이터 저장소</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">입력</div><div class="compare-attr-v">Binance REST/WS API</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">저장</div><div class="compare-attr-v">1m kline → ClickHouse / Parquet</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">출력</div><div class="compare-attr-v">OHLCV 정규화, feature vector</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">위치</div><div class="compare-attr-v">백엔드 (Python / Node)</div></div>
+      </div>
+      <div class="compare-col right">
+        <h4>M10<span class="role">chart visualization</span></h4>
+        <div class="compare-attr"><div class="compare-attr-k">역할</div><div class="compare-attr-v">시각화 UI</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">입력</div><div class="compare-attr-v">M8에서 읽은 bar 배열</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">저장</div><div class="compare-attr-v">저장 안 함 (메모리만)</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">출력</div><div class="compare-attr-v">캔들 그림, 지표 오버레이</div></div>
+        <div class="compare-attr"><div class="compare-attr-k">위치</div><div class="compare-attr-v">프론트 (React + KLineChart)</div></div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:20px; color:var(--amber); font-family:'Cormorant Garamond',serif; font-style:italic; font-size:18px;">
+      ▸ 차트는 데이터 레이크에서 <em>읽기만</em>, 데이터 레이크는 <em>수집·저장·재샘플링만</em>.
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">왜 분리하는가 — Single Responsibility</div>
+        <div class="example-body">
+          M8은 24/7 백그라운드 ingest 프로세스. M10은 사용자가 차트 열 때만 동작. 만약 합치면 차트 닫으면 데이터 수집 멈춤 → 백테스트 데이터 누락. 분리하면 차트 100개 띄워도 ingest 1개. <code>SRP</code>(단일책임원칙) 정석.
+        </div>
+        <span class="example-tag">architecture ▸ srp</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">데이터 흐름 — 한 방향만</div>
+        <div class="example-body">
+          M8 → REST API → M10. M10이 M8에 쓰는 일은 절대 없음(읽기 전용). M10에서 그린 알람 수평선 같은 건 별도 <code>alarms</code> 테이블에 저장 (M4가 사용). 양방향 연결 금지 — 순환 의존 → 디버깅 지옥.
+        </div>
+        <span class="example-tag">flow ▸ unidirectional</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">실전 시나리오 — 5초 사용자 인터랙션</div>
+        <div class="example-body">
+          [00초] M10에서 BTC 1d 클릭 → [00.1초] REST <code>GET /m8/ohlcv?symbol=BTCUSDT&tf=1d&limit=500</code> → [00.3초] M8 ClickHouse 쿼리 → [00.4초] JSON 응답 → [00.5초] KLineChart 렌더 완료. 사용자 체감 즉시. M8은 그동안 1m kline ingest를 멈추지 않음.
+        </div>
+        <span class="example-tag">latency ▸ &lt;500ms</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §7. INPUTS NEEDED ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">07<small>INPUT</small></div>
+      <div>
+        <div class="sec-tag">required · 너가 줘야 할 자료</div>
+        <h2 class="sec-title">최소 입력 4개 <span class="ko">— 자동화 시작 트리거</span></h2>
+      </div>
+    </div>
+
+    <div class="checklist">
+      <div class="check-row">
+        <div class="check-num">①</div>
+        <div class="check-label">분할매수 규칙</div>
+        <div class="check-format">"1차 40% 진입, 2차 -2%에 30%, 3차 -4%에 30%. 매도는 +3%에 절반, +5%에 나머지"</div>
+      </div>
+      <div class="check-row">
+        <div class="check-num">②</div>
+        <div class="check-label">리스크 한도 6개</div>
+        <div class="check-format">일일 손실 3% / 종목당 30% / 동시 5개 / 분당 10주문 / 슬리피지 0.5% / 연속실패 3회</div>
+      </div>
+      <div class="check-row">
+        <div class="check-num">③</div>
+        <div class="check-label">거래대금 상위 N</div>
+        <div class="check-format">"상위 100 / 30 / …" — 백테스트 universe 크기</div>
+      </div>
+      <div class="check-row">
+        <div class="check-num">④</div>
+        <div class="check-label">백테스트 기간 / 시드 자본</div>
+        <div class="check-format">"2020-01-01 ~ 2025-12-31, 1만 USDT"</div>
+      </div>
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">분할매수 — 7-split 풀 옵션 예시</div>
+        <div class="example-body">
+          공격형: <code>10/15/15/20/20/10/10%</code> 7단계, 진입 후 -1/-2/-3/-5/-7/-10% 트리거. 평균단가 빠르게 낮추되 상장폐지급 폭락엔 자본 27% 더 남김. 보수형은 4-split <code>50/25/15/10%</code>가 더 안정적.
+        </div>
+        <span class="example-tag">profile ▸ aggressive</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">리스크 한도 — 일일 손실 3% 의미</div>
+        <div class="example-body">
+          시드 1만 USDT 기준 일일 -300 USDT 도달 시 24시간 동안 모든 신규 진입 차단(freeze). 기존 포지션 청산은 가능. 24시간 후 자동 해제. 연속 3일 trigger 시 영구 freeze → 사람이 yaml 수정 + 재가동해야 풀림.
+        </div>
+        <span class="example-tag">guard ▸ circuit breaker</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">상위 N — 30 vs 100 백테스트 차이</div>
+        <div class="example-body">
+          상위 30: BTC/ETH/메이저 알트만, 슬리피지 평균 5bps, 백테스트 깔끔. 상위 100: 잡코인 포함, 슬리피지 30~50bps, 신호 빈도 3배 ↑ 하지만 펌프&덤프 노이즈. 권장: 백테스트는 30/50/100 셋 다 돌리고 Sharpe·MDD 비교 후 결정.
+        </div>
+        <span class="example-tag">tuning ▸ universe size</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §8. WORK ORDER ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">08<small>ORDER</small></div>
+      <div>
+        <div class="sec-tag">roadmap · 작업 순서</div>
+        <h2 class="sec-title">최단 경로 9단계 <span class="ko">— 백테스트까지 가는 길</span></h2>
+      </div>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipe-step priority">
+        <div class="pipe-step-name">M8 DataLake</div>
+        <div class="pipe-step-desc">1m kline 5년치 ingest → ClickHouse</div>
+      </div>
+      <div class="pipe-step priority">
+        <div class="pipe-step-name">M5 Backtest</div>
+        <div class="pipe-step-desc">event loop + fee + fill model</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">M3 Validate</div>
+        <div class="pipe-step-desc">DSL 누락/충돌 검사</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">M10 Chart</div>
+        <div class="pipe-step-desc">단일 차트 + Volume</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">M6 Optimize</div>
+        <div class="pipe-step-desc">Optuna params sweep</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">M10 Grid</div>
+        <div class="pipe-step-desc">N분할 + 알람 + 드로잉</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">M4+M9</div>
+        <div class="pipe-step-desc">실시간 시그널 + Binance 페이퍼</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">M7+M12+M11</div>
+        <div class="pipe-step-desc">분할매수 + 리스크 + 킬스위치</div>
+      </div>
+      <div class="pipe-step">
+        <div class="pipe-step-name">실거래</div>
+        <div class="pipe-step-desc">page-out → live trade</div>
+      </div>
+    </div>
+
+    <div style="margin-top:20px; padding:16px 20px; border-left:3px solid var(--amber); background:var(--bg-1); font-size:12px; color:var(--ink-dim); font-family:'Noto Sans KR',sans-serif;">
+      ⚠️ <strong style="color:var(--amber)">M2 자연어 변환은 마지막</strong> — 폼 빌더만으로 P1 충분. LLM 비용 0, 검증 쉬움.
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="EX/01">
+        <div class="example-num">i.</div>
+        <div class="example-title">왜 M8을 첫 번째에 — 데이터 없으면 다 무용</div>
+        <div class="example-body">
+          백테스트(M5)·시그널(M4)·차트(M10) 모두 OHLCV가 입력. M8 없이 M5부터 만들면 더미 CSV로 시작 → 나중에 실데이터 붙일 때 인터페이스 깨짐. M8 먼저 만들고 <code>get_ohlcv(sym, tf, start, end)</code> 표준 함수 박아놓으면 그 뒤는 모두 의존성 따라 자연 정렬.
+        </div>
+        <span class="example-tag">order ▸ data-first</span>
+      </div>
+      <div class="example" data-label="EX/02">
+        <div class="example-num">ii.</div>
+        <div class="example-title">M5 → M6 — Optimizer가 백테스트를 1만 번 호출</div>
+        <div class="example-body">
+          Optuna는 params 공간을 베이지안 탐색으로 1,000~10,000회 sweep. 각 시도가 M5 백테스트 1회. M5가 5년치 백테스트 30초 걸리면 1만 회 = 83시간. 그래서 M5 최적화(numba JIT, vectorize) 필수 → 5년치 1초로 단축 → 10,000회가 3시간.
+        </div>
+        <span class="example-tag">perf ▸ numba jit</span>
+      </div>
+      <div class="example" data-label="EX/03">
+        <div class="example-num">iii.</div>
+        <div class="example-title">실거래 직전 — 페이퍼 30일</div>
+        <div class="example-body">
+          M9 Binance 어댑터 페이퍼 모드: 실API에서 가격 받지만 주문은 가짜. 30일 페이퍼 운용 → 슬리피지 실측, 신호↔체결 지연 측정, 리스크 가드레일 발동 횟수 체크. 페이퍼 결과가 백테스트 ±20% 이내일 때만 실거래 전환. 차이 크면 Look-Ahead Bias 의심.
+        </div>
+        <span class="example-tag">stage ▸ paper trading</span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ───────── §9. NEXT ACTION ───────── -->
+  <section class="block">
+    <div class="sec-header">
+      <div class="sec-num">09<small>CTA</small></div>
+      <div>
+        <div class="sec-tag">next action · 골라줘</div>
+        <h2 class="sec-title">다음 단계 선택 <span class="ko">— 어느 길로 갈까요</span></h2>
+      </div>
+    </div>
+
+    <div class="actions">
+      <div class="action">
+        <div class="action-letter">A.</div>
+        <div class="action-title">최소 입력 4개 작성</div>
+        <div class="action-desc">→ dummy_strategy_v1.yaml + M5 spec 초안</div>
+      </div>
+      <div class="action">
+        <div class="action-letter">B.</div>
+        <div class="action-title">M8 spec 채우기</div>
+        <div class="action-desc">→ Binance ingest 파이프라인 설계</div>
+      </div>
+      <div class="action">
+        <div class="action-letter">C.</div>
+        <div class="action-title">폼 빌더 UI 와이어프레임</div>
+        <div class="action-desc">→ 자연어 P2 미루고 P1 빠르게</div>
+      </div>
+      <div class="action">
+        <div class="action-letter">D.</div>
+        <div class="action-title">기타 / 추가 논의</div>
+        <div class="action-desc">→ 자유 선택</div>
+      </div>
+    </div>
+
+    <div class="examples">
+      <div class="example" data-label="PATH/A">
+        <div class="example-num">A.</div>
+        <div class="example-title">입력 4개 → 첫 백테스트까지 7일</div>
+        <div class="example-body">
+          Day 1: yaml 작성. Day 2-3: M8 ingest (Binance kline 5년치). Day 4-5: M5 엔진 코어. Day 6: 첫 run_id 발급, Sharpe 0.8 정도 나오면 베이스라인 확보. Day 7: M6 Optuna sweep 시작 → Sharpe 1.2 목표.
+        </div>
+        <span class="example-tag">timeline ▸ 7 days</span>
+      </div>
+      <div class="example" data-label="PATH/B">
+        <div class="example-num">B.</div>
+        <div class="example-title">M8 spec — 가장 기반 작업</div>
+        <div class="example-body">
+          ingest worker(Python asyncio) + ClickHouse 스키마 + WebSocket 실시간 + REST 백필 + 무결성 체크(gap detection) + 재샘플링 view. 코어 ~600줄, 1주일이면 production-ready. 이게 있어야 다른 모듈 모두가 의미를 가짐.
+        </div>
+        <span class="example-tag">foundation ▸ first</span>
+      </div>
+      <div class="example" data-label="PATH/C">
+        <div class="example-num">C.</div>
+        <div class="example-title">폼 빌더 — LLM 없이 시작</div>
+        <div class="example-body">
+          드롭다운 + 입력 필드만으로 DSL 생성. <code>[심볼:BTCUSDT▼] [TF:1d▼] [지표:EMA▼] [Period:200] [연산:닿음▼] [밴드:0.5%]</code>. React + react-hook-form, 2일 작성. 사용자 검증 받으며 자연스럽게 P2 자연어 인터페이스로 진화.
+        </div>
+        <span class="example-tag">UX ▸ progressive</span>
+      </div>
+    </div>
+  </section>
+
+
+  <footer>
+    <div>QUANT.SYS · BLUEPRINT v1.0.0 · 2026.04</div>
+    <div class="sig">— end of specification —</div>
+  </footer>
+
+</div>
+
+<script>
+  // M10 cell click toggle
+  document.querySelectorAll('.m10-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      cell.classList.toggle('active');
+    });
+  });
+
+  // Reveal on scroll
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.05 });
+  document.querySelectorAll('section.block').forEach(s => io.observe(s));
+
+  // Live ticker mock
+  let p = 67420.50;
+  setInterval(() => {
+    const delta = (Math.random() - 0.5) * 30;
+    p = Math.max(60000, Math.min(75000, p + delta));
+    const pct = ((p - 67000) / 67000 * 100).toFixed(2);
+    const el = document.querySelector('.topbar-right .hide-mobile');
+    if (el) {
+      const color = pct >= 0 ? 'var(--green)' : 'var(--red)';
+      el.innerHTML = `BTC/USDT · ${p.toFixed(2)} <span style="color:${color}">${pct >= 0 ? '+' : ''}${pct}%</span>`;
+    }
+  }, 2000);
+</script>
+
+</body>
+</html>
